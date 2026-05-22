@@ -3,7 +3,9 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = join(__dirname, '..', '..', 'data');
+// En Vercel el sistema de archivos es de solo lectura, así que usamos /tmp
+const isVercel = process.env.VERCEL === '1';
+const DATA_DIR = isVercel ? '/tmp' : join(__dirname, '..', '..', 'data');
 const DB_FILE = join(DATA_DIR, 'qr-history.json');
 
 function ensureDataDir() {
