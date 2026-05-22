@@ -1,5 +1,7 @@
 # Generador QR con Astro
 
+🚀 **Sitio en vivo:** [https://generador-de-qr-s32y.vercel.app/](https://generador-de-qr-s32y.vercel.app/)
+
 **Opción elegida:** C
 
 **Por qué elegí esta opción:** 
