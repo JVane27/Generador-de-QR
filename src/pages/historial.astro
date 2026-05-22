@@ -1,0 +1,332 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { obtenerHistorial, eliminarQR, limpiarHistorial } from '../lib/db.js';
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const action = data.get('action')?.toString() ?? '';
+  
+  if (action === 'delete') {
+    const id = data.get('id')?.toString() ?? '';
+    if (id) eliminarQR(id);
+  } else if (action === 'clear') {
+    limpiarHistorial();
+  }
+  
+  return Astro.redirect('/historial');
+}
+
+const historial = obtenerHistorial();
+
+function formatearFecha(iso) {
+  const d = new Date(iso);
+  const dia = d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+  const hora = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  return `${dia} · ${hora}`;
+}
+---
+
+<Layout title="Historial — QR Studio">
+  <div class="hist-top">
+    <div>
+      <h1><span class="gradient-text">Tu historial</span></h1>
+      <p class="subtitle">Todos los QRs que has generado <span class="emoji">📂</span></p>
+    </div>
+    {historial.length > 0 && (
+      <form method="POST" class="clear-form">
+        <input type="hidden" name="action" value="clear" />
+        <button type="submit" class="btn-clear" id="btn-clear" onclick="return confirm('¿Eliminar todo el historial?')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+          </svg>
+          Limpiar
+        </button>
+      </form>
+    )}
+  </div>
+
+  {historial.length > 0 && (
+    <p class="hist-count">
+      <span class="count-badge">{historial.length}</span> código{historial.length !== 1 ? 's' : ''} QR guardado{historial.length !== 1 ? 's' : ''}
+    </p>
+  )}
+
+  {historial.length > 0 ? (
+    <div class="hist-grid">
+      {historial.map((item, i) => {
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(item.texto)}`;
+        const waMsg = `https://wa.me/?text=${encodeURIComponent(`¡Mira este código QR!\n\n📎 ${item.texto}\n\n🔗 QR: ${qrUrl}`)}`;
+        return (
+          <div class="hist-item" id={`qr-${item.id}`} style={`animation-delay: ${i * 0.05}s`}>
+            <div class="item-qr-wrap">
+              <img src={qrUrl} alt={`QR: ${item.texto}`} width="100" height="100" loading="lazy" />
+            </div>
+            <div class="item-body">
+              <p class="item-url">{item.texto}</p>
+              <p class="item-time">{formatearFecha(item.fecha)}</p>
+              <div class="item-btns">
+                <a href={qrUrl} download={`qr-${item.id}.png`} class="chip chip-dl" title="Descargar">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  PNG
+                </a>
+                <a href={waMsg} target="_blank" rel="noopener noreferrer" class="chip chip-wa" title="Compartir por WhatsApp">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                  </svg>
+                  WhatsApp
+                </a>
+                <form method="POST" style="display:inline;">
+                  <input type="hidden" name="action" value="delete" />
+                  <input type="hidden" name="id" value={item.id} />
+                  <button type="submit" class="chip chip-del" title="Eliminar">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  ) : (
+    <div class="empty-state" id="empty-state">
+      <span class="empty-icon">📭</span>
+      <p style="font-weight:600; font-size:1.15rem; color:var(--text-primary); margin-bottom:0.5rem;">Sin QRs todavía</p>
+      <p style="color:var(--text-secondary);">Genera tu primer código y aparecerá aquí.</p>
+    </div>
+  )}
+
+  <a href="/" class="back-link" id="back-link">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12"></line>
+      <polyline points="12 19 5 12 12 5"></polyline>
+    </svg>
+    Volver al generador
+  </a>
+</Layout>
+
+<style>
+  .hist-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .clear-form {
+    flex-shrink: 0;
+    margin-top: 0.5rem;
+  }
+
+  .btn-clear {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: 'Space Grotesk', sans-serif;
+    color: #fb7185;
+    background: rgba(244, 63, 94, 0.08);
+    border: 1px solid rgba(244, 63, 94, 0.15);
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+  }
+
+  .btn-clear:hover {
+    background: rgba(244, 63, 94, 0.15);
+    border-color: rgba(244, 63, 94, 0.3);
+    transform: translateY(-1px);
+  }
+
+  .hist-count {
+    margin-top: 0.25rem;
+    margin-bottom: 1.75rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: white;
+    background: var(--gradient-primary);
+    border-radius: 9999px;
+  }
+
+  .hist-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .hist-item {
+    display: flex;
+    gap: 1.1rem;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    background: var(--bg-card);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    transition: all 0.3s ease;
+    animation: itemIn 0.4s ease both;
+  }
+
+  @keyframes itemIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .hist-item:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--border-medium);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    transform: translateY(-2px);
+  }
+
+  .item-qr-wrap {
+    flex-shrink: 0;
+    width: 72px;
+    height: 72px;
+    background: white;
+    border-radius: 10px;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+
+  .item-qr-wrap img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    border-radius: 4px;
+  }
+
+  .item-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .item-url {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    word-break: break-all;
+    line-height: 1.4;
+    margin-bottom: 0.2rem;
+  }
+
+  .item-time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 0.65rem;
+  }
+
+  .item-btns {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-family: 'Inter', system-ui, sans-serif;
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    border: 1px solid transparent;
+    line-height: 1;
+  }
+
+  .chip-dl {
+    color: var(--purple-light);
+    background: rgba(168, 85, 247, 0.1);
+    border-color: rgba(168, 85, 247, 0.15);
+  }
+
+  .chip-dl:hover {
+    background: rgba(168, 85, 247, 0.2);
+    box-shadow: 0 2px 12px rgba(168, 85, 247, 0.2);
+    transform: translateY(-1px);
+  }
+
+  .chip-wa {
+    color: #4ade80;
+    background: rgba(37, 211, 102, 0.08);
+    border-color: rgba(37, 211, 102, 0.15);
+  }
+
+  .chip-wa:hover {
+    background: rgba(37, 211, 102, 0.18);
+    box-shadow: 0 2px 12px rgba(37, 211, 102, 0.2);
+    transform: translateY(-1px);
+  }
+
+  .chip-del {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-subtle);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+  }
+
+  .chip-del:hover {
+    color: #fb7185;
+    background: rgba(244, 63, 94, 0.1);
+    border-color: rgba(244, 63, 94, 0.2);
+    transform: translateY(-1px);
+  }
+
+  @media (max-width: 640px) {
+    .hist-top {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .hist-item {
+      flex-direction: column;
+      text-align: center;
+      padding: 1.25rem;
+    }
+
+    .item-btns {
+      justify-content: center;
+    }
+  }
+</style>
